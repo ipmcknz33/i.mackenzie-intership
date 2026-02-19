@@ -10,7 +10,7 @@ import "keen-slider/keen-slider.min.css";
 
 const wheelControls = (slider) => {
   const wheelHandler = (e) => {
-    // Only scroll slider when the mouse is hovering the slider
+    
     if (!slider.container.matches(":hover")) return;
 
     e.preventDefault();
@@ -55,18 +55,18 @@ const HotCollections = () => {
         "(max-width: 600px)": { slides: { perView: 1, spacing: 12 } },
       },
       created(s) {
-        // Prevent Bootstrap/flex weirdness after mount
+        
         s.slides.forEach((el) => (el.style.minWidth = "0"));
       },
       updated(s) {
-        // Prevent Bootstrap/flex weirdness after re-render (back/forward nav)
+        
         s.slides.forEach((el) => (el.style.minWidth = "0"));
       },
     },
     [wheelControls],
   );
 
-  // Fetch + force skeleton to show at least 2000ms
+  
   useEffect(() => {
     let isMounted = true;
     let timeoutId;
@@ -107,9 +107,9 @@ const HotCollections = () => {
     };
   }, []);
 
-  // Recalculate Keen whenever the slide list changes
+  
   useEffect(() => {
-    // Using rAF helps after route navigation when DOM settles
+    
     const id = requestAnimationFrame(() => {
       slider.current?.update();
     });
