@@ -6,6 +6,13 @@ import "../../css/styles/skeleton.css";
 const TOP_SELLERS_API =
   "https://us-central1-nft-cloud-functions.cloudfunctions.net/topSellers";
 
+const get = (obj, keys, fallback = "") => {
+  for (const k of keys) {
+    if (obj && obj[k] !== undefined && obj[k] !== null) return obj[k];
+  }
+  return fallback;
+};
+
 const TopSellers = () => {
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,18 +25,20 @@ const TopSellers = () => {
       const start = Date.now();
 
       try {
-        const { data } = await axios.get(TOP_SELLERS_API);
+        const res = await axios.get(TOP_SELLERS_API);
+        const data = res?.data;
 
         const elapsed = Date.now() - start;
-        if (elapsed < 2000) {
-          await new Promise((res) => setTimeout(res, 2000 - elapsed));
+        if (elapsed < 800) {
+          await new Promise((r) => setTimeout(r, 800 - elapsed));
         }
 
-        if (mounted) {
-          setSellers(Array.isArray(data) ? data : []);
-        }
-      } catch (error) {
-        console.error("Top sellers fetch error:", error);
+        if (!mounted) return;
+
+        const arr = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+        setSellers(arr);
+      } catch (err) {
+        console.error("Top sellers fetch error:", err);
         if (mounted) setSellers([]);
       } finally {
         if (mounted) setLoading(false);
@@ -37,7 +46,6 @@ const TopSellers = () => {
     };
 
     fetchSellers();
-
     return () => {
       mounted = false;
     };
@@ -63,41 +71,58 @@ const TopSellers = () => {
                       <div className="ip-skel ip-skel--avatar" />
                     </div>
                     <div className="author_list_info">
-                      <div
-                        className="ip-skel ip-skel--text"
-                        style={{ width: 140, marginBottom: 6 }}
-                      />
-                      <div
-                        className="ip-skel ip-skel--text"
-                        style={{ width: 80 }}
-                      />
+                      <div className="ip-skel ip-skel--text" style={{ width: 140, marginBottom: 6 }} />
+                      <div className="ip-skel ip-skel--text" style={{ width: 80 }} />
                     </div>
                   </li>
                 ))}
               </ol>
             ) : (
               <ol className="author_list">
-                {sellers.map((seller) => (
-                  <li key={seller.authorId}>
-                    <div className="author_list_pp">
-                      <Link to={`/author/${seller.authorId}`}>
-                        <img
-                          className="lazy pp-author"
-                          src={seller.authorImage}
-                          alt={seller.authorName}
-                        />
-                        <i className="fa fa-check"></i>
-                      </Link>
-                    </div>
+                {sellers.map((s) => {
+                  const authorId = String(get(s, ["authorId", "id", "author_id"], ""));
+                  const authorName = get(s, ["authorName", "name", "author_name"], "Unknown");
+                  const authorImage = get(s, ["authorImage", "image", "author_image"], "");
+                  const price = get(s, ["price", "eth", "amount"], "");
 
-                    <div className="author_list_info">
-                      <Link to={`/author/${seller.authorId}`}>
-                        {seller.authorName}
-                      </Link>
-                      <span>{seller.price} ETH</span>
-                    </div>
-                  </li>
-                ))}
+                  return (
+                    <li key={authorId || authorName}>
+                      <div className="author_list_pp">
+                        <Link
+                          to={`/author/${authorId}`}
+                          state={{
+                            author: {
+                              authorId,
+                              authorName,
+                              authorImage,
+                              price,
+                            },
+                          }}
+                        >
+                          <img className="lazy pp-author" src={authorImage} alt={authorName} />
+                          <i className="fa fa-check"></i>
+                        </Link>
+                      </div>
+
+                      <div className="author_list_info">
+                        <Link
+                          to={`/author/${authorId}`}
+                          state={{
+                            author: {
+                              authorId,
+                              authorName,
+                              authorImage,
+                              price,
+                            },
+                          }}
+                        >
+                          {authorName}
+                        </Link>
+                        <span>{price ? `${price} ETH` : ""}</span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ol>
             )}
 
