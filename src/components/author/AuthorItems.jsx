@@ -20,7 +20,6 @@ const AuthorItems = ({ authorId }) => {
 
         const aid = String(authorId);
 
-        // ✅ robust match (some APIs use sellerId instead of authorId)
         const filtered = list.filter((item) => {
           const possibleIds = [
             item.authorId,
@@ -62,8 +61,8 @@ const AuthorItems = ({ authorId }) => {
       <div className="text-center mt-4">
         <p>No items found for this author.</p>
         <p style={{ opacity: 0.7 }}>
-          This usually means the items API doesn’t use <code>authorId</code> for matching
-          (it may use <code>sellerId</code> / <code>creatorId</code>).
+          This usually means the items API doesn’t use <code>authorId</code> for
+          matching (it may use <code>sellerId</code> / <code>creatorId</code>).
         </p>
       </div>
     );
@@ -76,9 +75,17 @@ const AuthorItems = ({ authorId }) => {
         const title = item.title ?? item.name ?? "Untitled";
         const image = item.nftImage ?? item.image ?? item.imageUrl;
         const price =
-          item.price != null ? item.price : item.nftPrice != null ? item.nftPrice : null;
+          item.price != null
+            ? item.price
+            : item.nftPrice != null
+              ? item.nftPrice
+              : null;
         const likes =
-          item.likes != null ? item.likes : item.favoriteCount != null ? item.favoriteCount : 0;
+          item.likes != null
+            ? item.likes
+            : item.favoriteCount != null
+              ? item.favoriteCount
+              : 0;
 
         return (
           <div className="col-lg-3 col-md-6 col-sm-6 col-xs-12" key={id}>
