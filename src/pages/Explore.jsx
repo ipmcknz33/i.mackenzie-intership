@@ -52,7 +52,7 @@ const LOAD_MORE_STEP = 4;
 const Explore = () => {
   const [allItems, setAllItems] = useState([]);
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
-  const [status, setStatus] = useState("loading"); // loading | success | error
+  const [status, setStatus] = useState("loading"); 
 
   useEffect(() => {
     let mounted = true;
@@ -83,7 +83,7 @@ const Explore = () => {
             return;
           }
         } catch {
-          // try next endpoint
+          
         }
       }
 

@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
+import { FaEthereum } from "react-icons/fa";
 
 import AuthorImageFallback from "../images/author_thumbnail.jpg";
 import NftImageFallback from "../images/nftImage.jpg";
 
 const ITEM_DETAILS_API =
   "https://us-central1-nft-cloud-functions.cloudfunctions.net/itemDetails";
-
 const AUTHORS_API =
   "https://us-central1-nft-cloud-functions.cloudfunctions.net/authors";
 
@@ -32,24 +32,25 @@ const getPersonId = (p) =>
 
 const getPersonName = (p) =>
   p?.authorName ??
+  p?.ownerName ??
+  p?.creatorName ??
   p?.name ??
   p?.username ??
   p?.tag ??
   p?.handle ??
-  p?.ownerName ??
-  p?.creatorName ??
   "Unknown";
 
 const getPersonAvatar = (p) =>
   p?.authorImage ??
+  p?.ownerImage ??
+  p?.creatorImage ??
   p?.profileImg ??
   p?.profileImage ??
-  p?.profile_image ??
   p?.avatar ??
   p?.image ??
   p?.img ??
-  p?.ownerImage ??
-  p?.creatorImage ??
+  p?.pfp ??
+  p?.photo ??
   null;
 
 const normalizeOwners = (item) => {
@@ -108,6 +109,7 @@ const ItemDetails = () => {
 
         const root = getRoot(data);
         if (!mounted) return;
+
         setItem(root ?? null);
       } catch {
         if (mounted) setItem(null);
@@ -154,7 +156,6 @@ const ItemDetails = () => {
   }, [authors]);
 
   const owners = useMemo(() => normalizeOwners(item ?? {}), [item]);
-  const firstOwner = owners?.[0] ?? null;
 
   if (loading) {
     return (
@@ -167,7 +168,10 @@ const ItemDetails = () => {
   if (!item) {
     return (
       <div className="container" style={{ paddingTop: 40, paddingBottom: 40 }}>
-        <Link to="/explore" style={{ display: "inline-block", marginBottom: 14 }}>
+        <Link
+          to="/explore"
+          style={{ display: "inline-block", marginBottom: 14 }}
+        >
           ← Back to Explore
         </Link>
 
@@ -190,6 +194,9 @@ const ItemDetails = () => {
   }
 
   const title = item?.title ?? item?.name ?? "Untitled";
+  const tag = item?.tag ?? item?.tagId ?? item?.tokenId ?? null;
+  const tagText = tag != null && `${tag}` !== "" ? ` #${tag}` : "";
+
   const image =
     item?.nftImage ??
     item?.image ??
@@ -197,62 +204,87 @@ const ItemDetails = () => {
     item?.img ??
     NftImageFallback;
 
+  const description =
+    item?.description ?? item?.desc ?? item?.details ?? item?.about ?? "";
+
   const price =
-    item?.price != null ? item.price : item?.nftPrice != null ? item.nftPrice : null;
+    item?.price != null
+      ? item.price
+      : item?.nftPrice != null
+        ? item.nftPrice
+        : null;
 
   const likes = item?.likes ?? item?.favoriteCount ?? item?.favorites ?? 0;
+  const views = item?.views ?? item?.viewCount ?? item?.seen ?? 0;
 
-  // Robust owner/creator extraction (covers many API shapes)
-  const ownerObj = toPersonObject(
-    item?.owner ??
-      item?.currentOwner ??
-      item?.seller ??
-      item?.ownerData ??
-      item?.ownerDetails ??
-      (item?.ownerId != null || item?.ownerName || item?.ownerImage
-        ? { authorId: item?.ownerId, name: item?.ownerName, avatar: item?.ownerImage }
-        : null)
-  );
+  const ownerObj =
+    toPersonObject(item?.owner ?? item?.ownerData ?? null) ??
+    (item?.ownerId != null ||
+    item?.ownerName ||
+    item?.ownerImage ||
+    item?.ownerAvatar
+      ? {
+          authorId: item?.ownerId ?? null,
+          ownerName: item?.ownerName ?? null,
+          ownerImage:
+            item?.ownerImage ?? item?.ownerAvatar ?? item?.ownerImg ?? null,
+        }
+      : null) ??
+    (owners[0]
+      ? {
+          authorId: owners[0].authorId,
+          name: owners[0].name,
+          avatar: owners[0].avatar,
+        }
+      : null);
 
-  const creatorObj = toPersonObject(
-    item?.creator ??
-      item?.author ??
-      item?.creatorData ??
-      item?.creatorDetails ??
-      (item?.creatorId != null || item?.creatorName || item?.creatorImage
-        ? { authorId: item?.creatorId, name: item?.creatorName, avatar: item?.creatorImage }
-        : null)
-  );
+  const creatorObj =
+    toPersonObject(item?.creator ?? item?.creatorData ?? null) ??
+    (item?.creatorId != null ||
+    item?.creatorName ||
+    item?.creatorImage ||
+    item?.creatorAvatar
+      ? {
+          authorId: item?.creatorId ?? null,
+          creatorName: item?.creatorName ?? null,
+          creatorImage:
+            item?.creatorImage ??
+            item?.creatorAvatar ??
+            item?.creatorImg ??
+            null,
+        }
+      : null);
 
-  // IDs (fallback to first owner in owners list)
   const ownerIdRaw = ownerObj ? getPersonId(ownerObj) : null;
   const creatorIdRaw = creatorObj ? getPersonId(creatorObj) : null;
 
-  const ownerId = ownerIdRaw != null ? String(ownerIdRaw) : firstOwner?.authorId ?? null;
+  const ownerId = ownerIdRaw != null ? String(ownerIdRaw) : null;
   const creatorId = creatorIdRaw != null ? String(creatorIdRaw) : null;
 
-  // Names (fallback to first owner name)
+  const ownerFromAuthors = ownerId ? authorsById.get(ownerId) : null;
+  const creatorFromAuthors = creatorId ? authorsById.get(creatorId) : null;
+
   const ownerName =
-    (ownerObj ? getPersonName(ownerObj) : "Unknown") !== "Unknown"
-      ? getPersonName(ownerObj)
-      : firstOwner?.name ?? "Unknown";
+    (ownerFromAuthors ? getPersonName(ownerFromAuthors) : null) ??
+    (ownerObj ? getPersonName(ownerObj) : "Unknown");
 
-  const creatorName = creatorObj ? getPersonName(creatorObj) : "Unknown";
-
-  // Avatars: authors api -> object avatar -> owners list avatar -> fallback
-  const ownerFromAuthors = ownerId ? authorsById.get(String(ownerId)) : null;
-  const creatorFromAuthors = creatorId ? authorsById.get(String(creatorId)) : null;
+  const creatorName =
+    (creatorFromAuthors ? getPersonName(creatorFromAuthors) : null) ??
+    (creatorObj ? getPersonName(creatorObj) : "Unknown");
 
   const ownerAvatar =
-    getPersonAvatar(ownerFromAuthors) ||
+    (ownerFromAuthors ? getPersonAvatar(ownerFromAuthors) : null) ||
     (ownerObj ? getPersonAvatar(ownerObj) : null) ||
-    firstOwner?.avatar ||
     AuthorImageFallback;
 
   const creatorAvatar =
-    getPersonAvatar(creatorFromAuthors) ||
+    (creatorFromAuthors ? getPersonAvatar(creatorFromAuthors) : null) ||
     (creatorObj ? getPersonAvatar(creatorObj) : null) ||
     AuthorImageFallback;
+
+  const hasPrice =
+    price != null && `${price}` !== "" && !Number.isNaN(Number(price));
+  const priceText = hasPrice ? Number(price).toFixed(2) : "—";
 
   return (
     <div className="container" style={{ paddingTop: 30, paddingBottom: 50 }}>
@@ -270,13 +302,58 @@ const ItemDetails = () => {
         </div>
 
         <div className="col-lg-6">
-          <h2 style={{ marginBottom: 10 }}>{title}</h2>
+          <h2 style={{ marginBottom: 10 }}>
+            {title}
+            {tagText}
+          </h2>
 
-          <div style={{ marginBottom: 10, opacity: 0.85 }}>
-            Price: {price != null && price !== "" ? `${price} ETH` : "—"}
+          <div style={{ display: "flex", gap: 10, marginBottom: 15 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: "#f3f3f3",
+                padding: "5px 12px",
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 500,
+              }}
+            >
+              <i className="fa fa-eye" />
+              {views}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: "#f3f3f3",
+                padding: "5px 12px",
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 500,
+              }}
+            >
+              <i className="fa fa-heart" />
+              {likes}
+            </div>
           </div>
 
-          <div style={{ marginBottom: 18, opacity: 0.85 }}>Likes: {likes}</div>
+          {description ? (
+            <div style={{ marginBottom: 14, opacity: 0.85, lineHeight: 1.5 }}>
+              {description}
+            </div>
+          ) : null}
+
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>Price</div>
+            <div className="itemDetails__priceRow">
+              <FaEthereum className="itemDetails__priceIcon" />
+              <span className="itemDetails__priceValue">{priceText}</span>
+            </div>
+          </div>
 
           <div style={{ marginBottom: 18 }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Owner</div>
@@ -291,8 +368,8 @@ const ItemDetails = () => {
                   objectFit: "cover",
                 }}
               />
-              {ownerId != null ? (
-                <Link to={`/author/${String(ownerId)}`}>{ownerName}</Link>
+              {ownerId ? (
+                <Link to={`/author/${ownerId}`}>{ownerName}</Link>
               ) : (
                 <span>{ownerName}</span>
               )}
@@ -312,51 +389,46 @@ const ItemDetails = () => {
                   objectFit: "cover",
                 }}
               />
-              {creatorId != null ? (
-                <Link to={`/author/${String(creatorId)}`}>{creatorName}</Link>
+              {creatorId ? (
+                <Link to={`/author/${creatorId}`}>{creatorName}</Link>
               ) : (
                 <span>{creatorName}</span>
               )}
             </div>
           </div>
 
-          {owners.length > 0 && (
+          {owners.length > 0 ? (
             <div style={{ marginTop: 18 }}>
               <div style={{ fontWeight: 700, marginBottom: 10 }}>
                 Owners ({owners.length})
               </div>
 
               <div style={{ display: "grid", gap: 10 }}>
-                {owners.map((o, idx) => {
-                  const a = o.authorId ? authorsById.get(String(o.authorId)) : null;
-                  const avatar = getPersonAvatar(a) || o.avatar || AuthorImageFallback;
-
-                  return (
-                    <div
-                      key={`${o.authorId ?? "owner"}-${idx}`}
-                      style={{ display: "flex", alignItems: "center", gap: 10 }}
-                    >
-                      <img
-                        src={avatar}
-                        alt=""
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: "50%",
-                          objectFit: "cover",
-                        }}
-                      />
-                      {o.authorId ? (
-                        <Link to={`/author/${o.authorId}`}>{o.name}</Link>
-                      ) : (
-                        <span>{o.name}</span>
-                      )}
-                    </div>
-                  );
-                })}
+                {owners.map((o, idx) => (
+                  <div
+                    key={`${o.authorId ?? "owner"}-${idx}`}
+                    style={{ display: "flex", alignItems: "center", gap: 10 }}
+                  >
+                    <img
+                      src={o.avatar || AuthorImageFallback}
+                      alt=""
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                      }}
+                    />
+                    {o.authorId ? (
+                      <Link to={`/author/${o.authorId}`}>{o.name}</Link>
+                    ) : (
+                      <span>{o.name}</span>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
