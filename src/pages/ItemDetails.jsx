@@ -1,17 +1,80 @@
-import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import axios from "axios";
-import EthImage from "../images/ethereum.svg";
-import "../css/styles/skeleton.css";
 
-const HOT_URL =
-  "https://us-central1-nft-cloud-functions.cloudfunctions.net/hotCollections";
-const NEW_URL =
-  "https://us-central1-nft-cloud-functions.cloudfunctions.net/newItems";
+import AuthorImageFallback from "../images/author_thumbnail.jpg";
+import NftImageFallback from "../images/nftImage.jpg";
 
-function sleep(ms) {
-  return new Promise((res) => setTimeout(res, ms));
-}
+const ITEM_DETAILS_API =
+  "https://us-central1-nft-cloud-functions.cloudfunctions.net/itemDetails";
+
+const getRoot = (payload) => payload?.data ?? payload;
+
+const toPersonObject = (p) => {
+  if (p == null) return null;
+  if (typeof p === "number" || typeof p === "string") return { authorId: p };
+  if (typeof p === "object") return p;
+  return null;
+};
+
+const getPersonId = (p) =>
+  p?.authorId ??
+  p?.id ??
+  p?._id ??
+  p?.ownerId ??
+  p?.sellerId ??
+  p?.creatorId ??
+  p?.userId ??
+  null;
+
+const getPersonName = (p) =>
+  p?.authorName ?? p?.name ?? p?.username ?? p?.tag ?? p?.handle ?? "Unknown";
+
+const getPersonAvatar = (p) =>
+  p?.authorImage ??
+  p?.profileImg ??
+  p?.profileImage ??
+  p?.avatar ??
+  p?.image ??
+  p?.img ??
+  null;
+
+const normalizeOwners = (item) => {
+  const candidates = [
+    item?.owners,
+    item?.ownerHistory,
+    item?.history,
+    item?.ownerList,
+    item?.ownersList,
+  ];
+
+  const arr = candidates.find((x) => Array.isArray(x));
+  const raw = Array.isArray(arr) ? arr : [];
+
+  const normalized = raw
+    .map((o) => toPersonObject(o))
+    .filter(Boolean)
+    .map((o) => {
+      const id = getPersonId(o);
+      const name = getPersonName(o);
+      const avatar = getPersonAvatar(o);
+      return {
+        authorId: id != null ? String(id) : null,
+        name,
+        avatar: avatar || AuthorImageFallback,
+      };
+    });
+
+  const seen = new Set();
+  const unique = [];
+  for (const o of normalized) {
+    const key = `${o.authorId ?? "null"}|${o.name}|${o.avatar}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(o);
+  }
+  return unique;
+};
 
 const ItemDetails = () => {
   const { id } = useParams();
@@ -20,51 +83,20 @@ const ItemDetails = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [id]);
-
-  useEffect(() => {
     let mounted = true;
 
     const fetchItem = async () => {
       setLoading(true);
-      const start = Date.now();
-
       try {
-        const nftId = Number(id);
+        const { data } = await axios.get(ITEM_DETAILS_API, {
+          params: { nftId: id },
+        });
 
-        
-        const [hotRes, newRes] = await Promise.allSettled([
-          axios.get(HOT_URL),
-          axios.get(NEW_URL),
-        ]);
+        const root = getRoot(data);
+        if (!mounted) return;
 
-        const hotData =
-          hotRes.status === "fulfilled" && Array.isArray(hotRes.value.data)
-            ? hotRes.value.data
-            : [];
-
-        const newData =
-          newRes.status === "fulfilled" && Array.isArray(newRes.value.data)
-            ? newRes.value.data
-            : [];
-
-        const found =
-          hotData.find((x) => Number(x.nftId) === nftId) ||
-          newData.find((x) => Number(x.nftId) === nftId) ||
-          null;
-
-        // force minimum 2s loading so shimmer is visible
-        const elapsed = Date.now() - start;
-        if (elapsed < 2000) await sleep(2000 - elapsed);
-
-        if (mounted) setItem(found);
-      } catch (error) {
-        console.error("Error fetching item:", error);
-
-        const elapsed = Date.now() - start;
-        if (elapsed < 2000) await sleep(2000 - elapsed);
-
+        setItem(root ?? null);
+      } catch {
         if (mounted) setItem(null);
       } finally {
         if (mounted) setLoading(false);
@@ -72,142 +104,179 @@ const ItemDetails = () => {
     };
 
     fetchItem();
-
     return () => {
       mounted = false;
     };
   }, [id]);
 
-  
+  const owners = useMemo(() => normalizeOwners(item ?? {}), [item]);
+
   if (loading) {
     return (
-      <div className="container mt-5">
-        <div className="row">
-          <div className="col-md-6 text-center">
-            <div className="ip-skel ip-skel--img" style={{ height: 420 }} />
-          </div>
-
-          <div className="col-md-6">
-            <div className="ip-skel ip-skel--title" style={{ height: 28 }} />
-            <div
-              className="ip-skel ip-skel--text"
-              style={{ width: "40%", marginTop: 16 }}
-            />
-            <div
-              className="ip-skel ip-skel--text"
-              style={{ width: "70%", marginTop: 12 }}
-            />
-
-            <div style={{ marginTop: 24 }} className="d-flex flex-row">
-              <div className="mr40">
-                <div
-                  className="ip-skel ip-skel--avatar"
-                  style={{ marginBottom: 10 }}
-                />
-                <div className="ip-skel ip-skel--text" style={{ width: 160 }} />
-              </div>
-            </div>
-
-            <div style={{ marginTop: 24 }}>
-              <div className="ip-skel ip-skel--text" style={{ width: 120 }} />
-              <div
-                className="ip-skel ip-skel--text"
-                style={{ width: 160, marginTop: 10 }}
-              />
-            </div>
-          </div>
-        </div>
+      <div className="container" style={{ paddingTop: 40, paddingBottom: 40 }}>
+        <div style={{ opacity: 0.85 }}>Loading item...</div>
       </div>
     );
   }
 
   if (!item) {
     return (
-      <div className="text-center mt-5">
-        <h3>Item not found</h3>
-        <p>That NFT doesn’t exist.</p>
-        <Link to="/explore">← Back to Explore</Link>
+      <div className="container" style={{ paddingTop: 40, paddingBottom: 40 }}>
+        <Link
+          to="/explore"
+          style={{ display: "inline-block", marginBottom: 14 }}
+        >
+          ← Back to Explore
+        </Link>
+
+        <div
+          style={{
+            padding: 16,
+            borderRadius: 10,
+            background: "#fff",
+            border: "1px solid rgba(0,0,0,0.08)",
+            maxWidth: 520,
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>NFT not found</div>
+          <div style={{ opacity: 0.85 }}>
+            This NFT ID didn’t return data from the API.
+          </div>
+        </div>
       </div>
     );
   }
 
-  const title = item.title ?? "Untitled";
+  const title = item?.title ?? item?.name ?? "Untitled";
+  const image =
+    item?.nftImage ??
+    item?.image ??
+    item?.imageUrl ??
+    item?.img ??
+    NftImageFallback;
+
   const price =
-    item.price !== null && item.price !== undefined
-      ? Number(item.price).toFixed(2)
-      : null;
+    item?.price != null
+      ? item.price
+      : item?.nftPrice != null
+        ? item.nftPrice
+        : null;
+
+  const likes = item?.likes ?? item?.favoriteCount ?? item?.favorites ?? 0;
+
+  const ownerObj = toPersonObject(item?.owner ?? item?.ownerData ?? null);
+  const creatorObj = toPersonObject(item?.creator ?? item?.creatorData ?? null);
+
+  const ownerId = ownerObj ? getPersonId(ownerObj) : null;
+  const creatorId = creatorObj ? getPersonId(creatorObj) : null;
+
+  const ownerName = ownerObj ? getPersonName(ownerObj) : "Unknown";
+  const creatorName = creatorObj ? getPersonName(creatorObj) : "Unknown";
+
+  const ownerAvatar =
+    (ownerObj ? getPersonAvatar(ownerObj) : null) || AuthorImageFallback;
+  const creatorAvatar =
+    (creatorObj ? getPersonAvatar(creatorObj) : null) || AuthorImageFallback;
 
   return (
-    <div id="wrapper">
-      <div className="no-bottom no-top" id="content">
-        <div id="top"></div>
+    <div className="container" style={{ paddingTop: 30, paddingBottom: 50 }}>
+      <Link to="/explore" style={{ display: "inline-block", marginBottom: 14 }}>
+        ← Back to Explore
+      </Link>
 
-        <section aria-label="section" className="mt90 sm-mt-0">
-          <div className="container">
-            <div className="row">
-              <div className="col-md-6 text-center">
-                <img
-                  src={item.nftImage}
-                  className="img-fluid img-rounded mb-sm-30 nft-image"
-                  alt={title}
-                />
-              </div>
+      <div className="row" style={{ alignItems: "flex-start" }}>
+        <div className="col-lg-6" style={{ marginBottom: 20 }}>
+          <img
+            src={image}
+            alt={title}
+            style={{ width: "100%", maxWidth: "100%", borderRadius: 10 }}
+          />
+        </div>
 
-              <div className="col-md-6">
-                <div className="item_info">
-                  <h2>{title}</h2>
+        <div className="col-lg-6">
+          <h2 style={{ marginBottom: 10 }}>{title}</h2>
 
-                  <div className="item_info_counts">
-                    <div className="item_info_views">
-                      <i className="fa fa-eye"></i> 100
-                    </div>
-                    <div className="item_info_like">
-                      <i className="fa fa-heart"></i> {item.likes ?? 0}
-                    </div>
-                  </div>
+          <div style={{ marginBottom: 10, opacity: 0.85 }}>
+            Price: {price != null && price !== "" ? `${price} ETH` : "—"}
+          </div>
 
-                  <p>
-                    NFT Code: ERC-{item.code ?? "—"} <br />
-                    NFT ID: {item.nftId}
-                  </p>
+          <div style={{ marginBottom: 18, opacity: 0.85 }}>Likes: {likes}</div>
 
-                  <div className="d-flex flex-row">
-                    <div className="mr40">
-                      <h6>Owner</h6>
-                      <div className="item_author">
-                        <div className="author_list_pp">
-                          <Link to={`/author/${item.authorId}`}>
-                            <img
-                              className="lazy"
-                              src={item.authorImage}
-                              alt=""
-                            />
-                            <i className="fa fa-check"></i>
-                          </Link>
-                        </div>
-                        <div className="author_list_info">
-                          <Link to={`/author/${item.authorId}`}>
-                            Author #{item.authorId}
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="de_tab tab_simple">
-                    <div className="de_tab_content">
-                      <h6>Price</h6>
-                      <div className="nft-item-price">
-                        <img src={EthImage} alt="" />
-                        <span>{price ?? "—"}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>Owner</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <img
+                src={ownerAvatar}
+                alt=""
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                }}
+              />
+              {ownerId != null ? (
+                <Link to={`/author/${String(ownerId)}`}>{ownerName}</Link>
+              ) : (
+                <span>{ownerName}</span>
+              )}
             </div>
           </div>
-        </section>
+
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>Creator</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <img
+                src={creatorAvatar}
+                alt=""
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                }}
+              />
+              {creatorId != null ? (
+                <Link to={`/author/${String(creatorId)}`}>{creatorName}</Link>
+              ) : (
+                <span>{creatorName}</span>
+              )}
+            </div>
+          </div>
+
+          {owners.length > 0 && (
+            <div style={{ marginTop: 18 }}>
+              <div style={{ fontWeight: 700, marginBottom: 10 }}>
+                Owners ({owners.length})
+              </div>
+
+              <div style={{ display: "grid", gap: 10 }}>
+                {owners.map((o, idx) => (
+                  <div
+                    key={`${o.authorId ?? "owner"}-${idx}`}
+                    style={{ display: "flex", alignItems: "center", gap: 10 }}
+                  >
+                    <img
+                      src={o.avatar}
+                      alt=""
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                      }}
+                    />
+                    {o.authorId ? (
+                      <Link to={`/author/${o.authorId}`}>{o.name}</Link>
+                    ) : (
+                      <span>{o.name}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

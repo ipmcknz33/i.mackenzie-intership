@@ -1,124 +1,113 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 
-const NEW_ITEMS_API =
-  "https://us-central1-nft-cloud-functions.cloudfunctions.net/newItems";
+import AuthorImageFallback from "../../images/author_thumbnail.jpg";
+import NftImageFallback from "../../images/nftImage.jpg";
 
-const AuthorItems = ({ authorId }) => {
+const AUTHOR_API =
+  "https://us-central1-nft-cloud-functions.cloudfunctions.net/authors";
+
+const getRoot = (data) => data?.data ?? data;
+
+const pickArray = (root) => {
+  const candidates = [root?.nftCollection, root?.nfts, root?.items, root?.collection];
+  const arr = candidates.find(Array.isArray);
+  return Array.isArray(arr) ? arr : [];
+};
+
+const getNftId = (item) => item?.id ?? item?._id ?? item?.nftId ?? item?.tokenId ?? null;
+const getTitle = (item) => item?.title ?? item?.name ?? "Untitled";
+const getImage = (item) =>
+  item?.nftImage ?? item?.image ?? item?.imageUrl ?? item?.img ?? NftImageFallback;
+
+const getPriceText = (item) => {
+  const price =
+    item?.price != null ? item.price : item?.nftPrice != null ? item.nftPrice : null;
+  return price != null && price !== "" ? `${price} ETH` : "—";
+};
+
+const getLikes = (item) => item?.likes ?? item?.favoriteCount ?? item?.favorites ?? 0;
+
+const AuthorItems = ({ authorId, authorAvatar }) => {
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState("loading"); // loading | success | error
 
   useEffect(() => {
-    let mounted = true;
+    let isMounted = true;
 
-    const fetchItems = async () => {
-      setLoading(true);
+    async function fetchItems() {
       try {
-        const { data } = await axios.get(NEW_ITEMS_API);
-        const list = Array.isArray(data) ? data : [];
+        setStatus("loading");
 
-        const aid = String(authorId);
+        const res = await axios.get(AUTHOR_API, { params: { author: authorId } });
+        const root = getRoot(res.data);
+        const list = pickArray(root);
 
-        const filtered = list.filter((item) => {
-          const possibleIds = [
-            item.authorId,
-            item.sellerId,
-            item.creatorId,
-            item.ownerId,
-          ]
-            .filter((v) => v != null)
-            .map((v) => String(v));
-
-          return possibleIds.includes(aid);
-        });
-
-        if (mounted) setItems(filtered);
-      } catch (err) {
-        console.error("Author items fetch error:", err);
-        if (mounted) setItems([]);
-      } finally {
-        if (mounted) setLoading(false);
+        if (!isMounted) return;
+        setItems(list);
+        setStatus("success");
+      } catch {
+        if (!isMounted) return;
+        setItems([]);
+        setStatus("error");
       }
-    };
+    }
 
     fetchItems();
+
     return () => {
-      mounted = false;
+      isMounted = false;
     };
   }, [authorId]);
 
-  if (loading) {
-    return (
-      <div className="text-center mt-4">
-        <p>Loading items...</p>
-      </div>
-    );
-  }
+  const badgeSrc = useMemo(() => authorAvatar || AuthorImageFallback, [authorAvatar]);
 
-  if (!items.length) {
-    return (
-      <div className="text-center mt-4">
-        <p>No items found for this author.</p>
-        <p style={{ opacity: 0.7 }}>
-          This usually means the items API doesn’t use <code>authorId</code> for
-          matching (it may use <code>sellerId</code> / <code>creatorId</code>).
-        </p>
-      </div>
-    );
-  }
+  if (status === "loading") return <div>Loading NFTs…</div>;
+  if (status === "error") return <div>Unable to load NFTs.</div>;
 
   return (
-    <div className="row">
+    <>
       {items.map((item, idx) => {
-        const id = item.id ?? item.nftId ?? item.itemId ?? `item-${idx}`;
-        const title = item.title ?? item.name ?? "Untitled";
-        const image = item.nftImage ?? item.image ?? item.imageUrl;
-        const price =
-          item.price != null
-            ? item.price
-            : item.nftPrice != null
-              ? item.nftPrice
-              : null;
-        const likes =
-          item.likes != null
-            ? item.likes
-            : item.favoriteCount != null
-              ? item.favoriteCount
-              : 0;
+        const detailId = getNftId(item) ?? idx;
+        const title = getTitle(item);
+        const image = getImage(item);
+        const priceText = getPriceText(item);
+        const likesVal = getLikes(item);
 
         return (
-          <div className="col-lg-3 col-md-6 col-sm-6 col-xs-12" key={id}>
+          <div className="col-lg-3 col-md-6 col-sm-6 col-xs-12" key={`${detailId}-${idx}`}>
             <div className="nft__item">
+              <div className="author_list_pp">
+                <img className="lazy" src={badgeSrc} alt="" />
+                <i className="fa fa-check"></i>
+              </div>
+
+              <div className="de_countdown"></div>
+
               <div className="nft__item_wrap">
-                <Link to={`/item-details/${id}`}>
-                  <img
-                    src={image}
-                    className="lazy nft__item_preview"
-                    alt={title}
-                  />
+                <Link to={`/item-details/${detailId}`}>
+                  <img src={image} className="lazy nft__item_preview" alt={title} />
                 </Link>
               </div>
 
               <div className="nft__item_info">
-                <Link to={`/item-details/${id}`}>
+                <Link to={`/item-details/${detailId}`}>
                   <h4>{title}</h4>
                 </Link>
 
-                <div className="nft__item_price">
-                  {price != null ? `${price} ETH` : "—"}
-                </div>
+                <div className="nft__item_price">{priceText}</div>
 
                 <div className="nft__item_like">
-                  <i className="fa fa-heart"></i>
-                  <span>{likes}</span>
+                  <i className="fa fa-heart" aria-hidden="true"></i>
+                  <span>{likesVal}</span>
                 </div>
               </div>
             </div>
           </div>
         );
       })}
-    </div>
+    </>
   );
 };
 
