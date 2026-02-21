@@ -28,7 +28,6 @@ const ExploreItems = () => {
 
   useEffect(() => {
     if (urlFilter !== sort) setSort(urlFilter);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlFilter]);
 
   useEffect(() => {
@@ -38,7 +37,6 @@ const ExploreItems = () => {
     if (JSON.stringify(next) !== JSON.stringify(current)) {
       setSearchParams(next, { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sort]);
 
   useEffect(() => {
