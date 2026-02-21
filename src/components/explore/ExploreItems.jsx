@@ -1,290 +1,226 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import axios from "axios";
-import Countdown from "../Countdown";
-import "../../css/styles/skeleton.css";
+import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import AuthorImageFallback from "../../images/author_thumbnail.jpg";
 import NftImageFallback from "../../images/nftImage.jpg";
 
-const EXPLORE_API =
-  "https://us-central1-nft-cloud-functions.cloudfunctions.net/explore";
+const toStr = (v) => (v == null ? null : String(v));
 
-const ALLOWED_FILTERS = new Set([
-  "price_low_to_high",
-  "price_high_to_low",
-  "likes_high_to_low",
-]);
+const getNftId = (item) => item?.nftId ?? item?.id ?? item?._id ?? null;
 
-const ExploreItems = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const urlFilterRaw = searchParams.get("filter") || "";
-  const urlFilter = ALLOWED_FILTERS.has(urlFilterRaw) ? urlFilterRaw : "";
+const getTitle = (item) => item?.title ?? item?.name ?? "Untitled";
 
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState(urlFilter);
-  const [visibleCount, setVisibleCount] = useState(8);
+const getNftImage = (item) =>
+  item?.nftImage ??
+  item?.image ??
+  item?.imageUrl ??
+  item?.img ??
+  NftImageFallback;
 
-  useEffect(() => {
-    if (urlFilter !== sort) setSort(urlFilter);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlFilter]);
+const getPriceText = (item) => {
+  const price =
+    item?.price != null
+      ? item.price
+      : item?.nftPrice != null
+        ? item.nftPrice
+        : null;
+  return price != null && price !== "" ? `${price} ETH` : "—";
+};
 
-  useEffect(() => {
-    const next = sort ? { filter: sort } : {};
-    const current = urlFilter ? { filter: urlFilter } : {};
+const getLikes = (item) =>
+  item?.likes ?? item?.favoriteCount ?? item?.favorites ?? 0;
 
-    if (JSON.stringify(next) !== JSON.stringify(current)) {
-      setSearchParams(next, { replace: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sort]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const fetchExplore = async () => {
-      setLoading(true);
-      const start = Date.now();
-
-      try {
-        const url = sort ? `${EXPLORE_API}?filter=${sort}` : EXPLORE_API;
-        const res = await axios.get(url);
-        const data = res?.data;
-
-        const elapsed = Date.now() - start;
-        if (elapsed < 2000) {
-          await new Promise((r) => setTimeout(r, 2000 - elapsed));
-        }
-
-        if (!mounted) return;
-
-        const list = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.data)
-            ? data.data
-            : [];
-
-        setItems(list);
-        setVisibleCount(8);
-      } catch (err) {
-        console.error("Explore fetch error:", err);
-        if (mounted) setItems([]);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    fetchExplore();
-
-    return () => {
-      mounted = false;
-    };
-  }, [sort]);
-
-  const visibleItems = useMemo(() => {
-    return items.slice(0, visibleCount);
-  }, [items, visibleCount]);
-
-  const canLoadMore = visibleCount < items.length;
-
-  const handleLoadMore = (e) => {
-    e.preventDefault();
-    setVisibleCount((prev) => Math.min(prev + 4, items.length));
-  };
-
-  const FilterSelect = (
-    <div style={{ marginBottom: 12 }}>
-      <select
-        id="filter-items"
-        value={sort}
-        onChange={(e) => setSort(e.target.value)}
-      >
-        <option value="">Default</option>
-        <option value="price_low_to_high">Price, Low to High</option>
-        <option value="price_high_to_low">Price, High to Low</option>
-        <option value="likes_high_to_low">Most liked</option>
-      </select>
-    </div>
+const getAuthorId = (item) =>
+  toStr(
+    item?.authorId ??
+      item?.author?.authorId ??
+      item?.creator?.authorId ??
+      item?.owner?.authorId ??
+      item?.seller?.authorId ??
+      null,
   );
 
-  if (loading) {
-    return (
-      <>
-        {FilterSelect}
+const getAuthorAvatar = (item) =>
+  item?.authorImage ??
+  item?.authorAvatar ??
+  item?.author?.authorImage ??
+  item?.author?.profileImg ??
+  item?.author?.profileImage ??
+  item?.author?.avatar ??
+  item?.author?.image ??
+  item?.creator?.authorImage ??
+  item?.creator?.profileImg ??
+  item?.creator?.profileImage ??
+  item?.creator?.avatar ??
+  item?.creator?.image ??
+  item?.owner?.authorImage ??
+  item?.owner?.profileImg ??
+  item?.owner?.profileImage ??
+  item?.owner?.avatar ??
+  item?.owner?.image ??
+  null;
 
-        <div className="row">
-          {new Array(8).fill(0).map((_, index) => (
-            <div
-              key={index}
-              className="d-item col-lg-3 col-md-6 col-sm-6 col-xs-12"
-              style={{ display: "block", backgroundSize: "cover" }}
-            >
-              <div className="nft__item">
-                <div className="author_list_pp">
-                  <div className="ip-skel ip-skel--avatar" />
-                </div>
+const parseCountdownTextToSeconds = (text) => {
+  if (!text || typeof text !== "string") return null;
+  const t = text.trim().toLowerCase();
+  const m = t.match(
+    /(?:(\d+)\s*d)?\s*(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*(?:(\d+)\s*s)?/,
+  );
+  if (!m) return null;
+  const d = Number(m[1] || 0);
+  const h = Number(m[2] || 0);
+  const mi = Number(m[3] || 0);
+  const s = Number(m[4] || 0);
+  const total = d * 86400 + h * 3600 + mi * 60 + s;
+  return total > 0 ? total : null;
+};
 
-                <div className="de_countdown">
-                  <div
-                    className="ip-skel ip-skel--text"
-                    style={{ width: 90 }}
-                  />
-                </div>
+const formatRemaining = (ms) => {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
 
-                <div className="nft__item_wrap">
-                  <div className="ip-skel ip-skel--image" />
-                </div>
+  if (days > 0) return `${days}d ${hours}h ${mins}m ${secs}s`;
+  return `${hours}h ${mins}m ${secs}s`;
+};
 
-                <div className="nft__item_info">
-                  <div
-                    className="ip-skel ip-skel--text"
-                    style={{ width: 140, marginBottom: 8 }}
-                  />
-                  <div
-                    className="ip-skel ip-skel--text"
-                    style={{ width: 80, marginBottom: 8 }}
-                  />
-                  <div className="nft__item_like">
-                    <div
-                      className="ip-skel ip-skel--text"
-                      style={{ width: 50 }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+const getEndMsFromItem = (item) => {
+  const raw =
+    item?.auction_end ??
+    item?.auctionEnd ??
+    item?.countdown_end ??
+    item?.countdownEnd ??
+    item?.endsAt ??
+    item?.endDate ??
+    item?.endTime ??
+    item?.expiresAt ??
+    item?.expiryDate ??
+    item?.deadline ??
+    null;
 
-        <div className="col-md-12 text-center">
-          <span
-            className="btn-main lead"
-            style={{ opacity: 0.6, cursor: "not-allowed" }}
-          >
-            Load more
-          </span>
-        </div>
-      </>
-    );
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return raw < 1e12 ? raw * 1000 : raw;
   }
+
+  if (typeof raw === "string" && raw.trim()) {
+    const parsed = Date.parse(raw);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  const text =
+    item?.countdown ??
+    item?.countDown ??
+    item?.countdownText ??
+    item?.countdown_text ??
+    item?.timeLeft ??
+    item?.time_left ??
+    item?.remaining ??
+    item?.remainingTime ??
+    item?.remaining_time ??
+    item?.expiresIn ??
+    item?.expires_in ??
+    item?.timer ??
+    item?.timerText ??
+    null;
+
+  if (typeof text === "number" && Number.isFinite(text)) {
+    const ms = text > 100000 ? text : text * 1000;
+    return Date.now() + ms;
+  }
+
+  if (typeof text === "string" && text.trim()) {
+    const seconds = parseCountdownTextToSeconds(text);
+    if (seconds != null) return Date.now() + seconds * 1000;
+  }
+
+  return null;
+};
+
+const ExploreItems = ({ items = [] }) => {
+  const list = Array.isArray(items) ? items : [];
+
+  const [now, setNow] = useState(() => Date.now());
+  const endByIdRef = useRef(new Map());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   return (
     <>
-      {FilterSelect}
+      {list.map((item, idx) => {
+        const nftId = getNftId(item);
+        const title = getTitle(item);
+        const image = getNftImage(item);
+        const priceText = getPriceText(item);
+        const likesVal = getLikes(item);
 
-      <div className="row">
-        {visibleItems.map((item, index) => {
-          const id =
-            item?.id ?? item?.nftId ?? item?.itemId ?? `explore-${index}`;
-          const title = item?.title ?? item?.name ?? "Untitled";
-          const image =
-            item?.nftImage ?? item?.image ?? item?.imageUrl ?? NftImageFallback;
+        const authorId = getAuthorId(item);
+        const avatar = getAuthorAvatar(item) || AuthorImageFallback;
 
-          const authorId =
-            item?.authorId ??
-            item?.sellerId ??
-            item?.creatorId ??
-            item?.ownerId;
+        const key = String(nftId ?? idx);
+        let endMs = endByIdRef.current.get(key);
+        if (endMs == null) {
+          endMs = getEndMsFromItem(item);
+          if (endMs != null) endByIdRef.current.set(key, endMs);
+        }
 
-          const authorImage =
-            item?.authorImage ??
-            item?.author_avatar ??
-            item?.sellerImage ??
-            AuthorImageFallback;
+        const countdownText =
+          endMs != null ? formatRemaining(Math.max(0, endMs - now)) : "";
 
-          const priceVal =
-            item?.price ?? item?.nftPrice ?? item?.eth ?? item?.amount;
-          const priceText =
-            priceVal != null && priceVal !== "" ? `${priceVal} ETH` : "—";
-
-          const likesVal =
-            item?.likes ?? item?.favoriteCount ?? item?.favorites ?? 0;
-
-          return (
-            <div
-              key={id}
-              className="d-item col-lg-3 col-md-6 col-sm-6 col-xs-12"
-              style={{ display: "block", backgroundSize: "cover" }}
-            >
-              <div className="nft__item">
-                <div className="author_list_pp">
-                  <Link
-                    to={authorId != null ? `/author/${authorId}` : "#"}
-                    data-bs-toggle="tooltip"
-                    data-bs-placement="top"
-                    onClick={(e) => {
-                      if (authorId == null) e.preventDefault();
-                    }}
-                  >
-                    <img className="lazy" src={authorImage} alt="" />
+        return (
+          <div
+            className="col-lg-3 col-md-6 col-sm-6 col-xs-12"
+            key={`${nftId ?? "nft"}-${idx}`}
+          >
+            <div className="nft__item">
+              <div className="author_list_pp">
+                {authorId ? (
+                  <Link to={`/author/${authorId}`}>
+                    <img className="lazy" src={avatar} alt="" />
                     <i className="fa fa-check"></i>
                   </Link>
-                </div>
+                ) : (
+                  <>
+                    <img className="lazy" src={avatar} alt="" />
+                    <i className="fa fa-check"></i>
+                  </>
+                )}
+              </div>
 
-                <Countdown endTime={Date.now() + 5 * 60 * 60 * 1000} />
+              {countdownText ? (
+                <div className="de_countdown">{countdownText}</div>
+              ) : null}
 
-                <div className="nft__item_wrap">
-                  <div className="nft__item_extra">
-                    <div className="nft__item_buttons">
-                      <button type="button">Buy Now</button>
-                      <div className="nft__item_share">
-                        <h4>Share</h4>
-                        <a href="#" onClick={(e) => e.preventDefault()}>
-                          <i className="fa fa-facebook fa-lg"></i>
-                        </a>
-                        <a href="#" onClick={(e) => e.preventDefault()}>
-                          <i className="fa fa-twitter fa-lg"></i>
-                        </a>
-                        <a href="#" onClick={(e) => e.preventDefault()}>
-                          <i className="fa fa-envelope fa-lg"></i>
-                        </a>
-                      </div>
-                    </div>
-                  </div>
+              <div className="nft__item_wrap">
+                <Link to={`/item-details/${nftId}`}>
+                  <img
+                    src={image}
+                    className="lazy nft__item_preview"
+                    alt={title}
+                  />
+                </Link>
+              </div>
 
-                  <Link to={`/item-details/${id}`}>
-                    <img
-                      src={image}
-                      className="lazy nft__item_preview"
-                      alt={title}
-                    />
-                  </Link>
-                </div>
+              <div className="nft__item_info">
+                <Link to={`/item-details/${nftId}`}>
+                  <h4>{title}</h4>
+                </Link>
 
-                <div className="nft__item_info">
-                  <Link to={`/item-details/${id}`}>
-                    <h4>{title}</h4>
-                  </Link>
+                <div className="nft__item_price">{priceText}</div>
 
-                  <div className="nft__item_price">{priceText}</div>
-
-                  <div className="nft__item_like">
-                    <i className="fa fa-heart"></i>
-                    <span>{likesVal}</span>
-                  </div>
+                <div className="nft__item_like">
+                  <i className="fa fa-heart" aria-hidden="true"></i>
+                  <span>{likesVal}</span>
                 </div>
               </div>
             </div>
-          );
-        })}
-      </div>
-
-      <div className="col-md-12 text-center">
-        {canLoadMore ? (
-          <a
-            href="#"
-            id="loadmore"
-            className="btn-main lead"
-            onClick={handleLoadMore}
-          >
-            Load more
-          </a>
-        ) : (
-          <div style={{ opacity: 0.7, marginTop: 10 }}>No more items.</div>
-        )}
-      </div>
+          </div>
+        );
+      })}
     </>
   );
 };
