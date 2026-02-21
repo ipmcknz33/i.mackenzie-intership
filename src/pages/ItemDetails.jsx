@@ -239,7 +239,7 @@ const ItemDetails = () => {
 
   const creatorName = creatorObj ? getPersonName(creatorObj) : "Unknown";
 
-  // Avatars: authors api -> object avatar -> owners list avatar -> fallback
+  
   const ownerFromAuthors = ownerId ? authorsById.get(String(ownerId)) : null;
   const creatorFromAuthors = creatorId ? authorsById.get(String(creatorId)) : null;
 
