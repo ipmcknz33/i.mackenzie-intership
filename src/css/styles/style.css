@@ -16721,3 +16721,6 @@ img {
   object-fit: cover;
   border: 2px solid #fff;
 }
+body {
+  padding-top: 90px; /* match header height */
+}
