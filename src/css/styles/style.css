@@ -16724,3 +16724,21 @@ img {
 body {
   padding-top: 90px; /* match header height */
 }
+.itemDetails__priceRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.itemDetails__priceIcon {
+  width: 22px;
+  height: 22px;
+  color: #627eea;
+}
+
+.itemDetails__priceValue {
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1;
+}

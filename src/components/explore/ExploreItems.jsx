@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import AuthorImageFallback from "../../images/author_thumbnail.jpg";
@@ -6,7 +6,8 @@ import NftImageFallback from "../../images/nftImage.jpg";
 
 const toStr = (v) => (v == null ? null : String(v));
 
-const getNftId = (item) => item?.nftId ?? item?.id ?? item?._id ?? null;
+const getNftId = (item) =>
+  item?.nftId ?? item?.id ?? item?._id ?? item?.tokenId ?? null;
 
 const getTitle = (item) => item?.title ?? item?.name ?? "Untitled";
 
@@ -168,8 +169,11 @@ const ExploreItems = ({ items = [] }) => {
           if (endMs != null) endByIdRef.current.set(key, endMs);
         }
 
+        const remaining = endMs != null ? Math.max(0, endMs - now) : null;
         const countdownText =
-          endMs != null ? formatRemaining(Math.max(0, endMs - now)) : "";
+          remaining != null && remaining > 0
+            ? formatRemaining(remaining)
+            : null;
 
         return (
           <div
@@ -193,10 +197,14 @@ const ExploreItems = ({ items = [] }) => {
 
               {countdownText ? (
                 <div className="de_countdown">{countdownText}</div>
-              ) : null}
+              ) : (
+                <div className="de_countdown" />
+              )}
 
               <div className="nft__item_wrap">
-                <Link to={`/item-details/${nftId}`}>
+                <Link
+                  to={nftId != null ? `/item-details/${nftId}` : "/explore"}
+                >
                   <img
                     src={image}
                     className="lazy nft__item_preview"
@@ -206,7 +214,9 @@ const ExploreItems = ({ items = [] }) => {
               </div>
 
               <div className="nft__item_info">
-                <Link to={`/item-details/${nftId}`}>
+                <Link
+                  to={nftId != null ? `/item-details/${nftId}` : "/explore"}
+                >
                   <h4>{title}</h4>
                 </Link>
 
