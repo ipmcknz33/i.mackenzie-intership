@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
-import { FaEthereum } from "react-icons/fa";
+import AOS from "aos";
 
 import AuthorImageFallback from "../images/author_thumbnail.jpg";
 import NftImageFallback from "../images/nftImage.jpg";
@@ -109,7 +109,6 @@ const ItemDetails = () => {
 
         const root = getRoot(data);
         if (!mounted) return;
-
         setItem(root ?? null);
       } catch {
         if (mounted) setItem(null);
@@ -140,11 +139,18 @@ const ItemDetails = () => {
     }
 
     fetchAuthors();
-
     return () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    const t = setTimeout(() => {
+      AOS.refreshHard();
+    }, 50);
+    return () => clearTimeout(t);
+  }, [loading, item]);
 
   const authorsById = useMemo(() => {
     const map = new Map();
@@ -295,6 +301,7 @@ const ItemDetails = () => {
       <div className="row" style={{ alignItems: "flex-start" }}>
         <div className="col-lg-6" style={{ marginBottom: 20 }}>
           <img
+            data-aos="zoom-in"
             src={image}
             alt={title}
             style={{ width: "100%", maxWidth: "100%", borderRadius: 10 }}
@@ -302,12 +309,15 @@ const ItemDetails = () => {
         </div>
 
         <div className="col-lg-6">
-          <h2 style={{ marginBottom: 10 }}>
+          <h2 data-aos="fade-up" style={{ marginBottom: 10 }}>
             {title}
             {tagText}
           </h2>
 
-          <div style={{ display: "flex", gap: 10, marginBottom: 15 }}>
+          <div
+            data-aos="fade-up"
+            style={{ display: "flex", gap: 10, marginBottom: 15 }}
+          >
             <div
               style={{
                 display: "flex",
@@ -342,20 +352,22 @@ const ItemDetails = () => {
           </div>
 
           {description ? (
-            <div style={{ marginBottom: 14, opacity: 0.85, lineHeight: 1.5 }}>
+            <div
+              data-aos="fade-up"
+              style={{ marginBottom: 14, opacity: 0.85, lineHeight: 1.5 }}
+            >
               {description}
             </div>
           ) : null}
 
-          <div style={{ marginBottom: 18 }}>
+          <div data-aos="fade-up" style={{ marginBottom: 18 }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Price</div>
             <div className="itemDetails__priceRow">
-              <FaEthereum className="itemDetails__priceIcon" />
               <span className="itemDetails__priceValue">{priceText}</span>
             </div>
           </div>
 
-          <div style={{ marginBottom: 18 }}>
+          <div data-aos="fade-up" style={{ marginBottom: 18 }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Owner</div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <img
@@ -376,7 +388,7 @@ const ItemDetails = () => {
             </div>
           </div>
 
-          <div style={{ marginBottom: 18 }}>
+          <div data-aos="fade-up" style={{ marginBottom: 18 }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Creator</div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <img
@@ -398,7 +410,7 @@ const ItemDetails = () => {
           </div>
 
           {owners.length > 0 ? (
-            <div style={{ marginTop: 18 }}>
+            <div data-aos="fade-up" style={{ marginTop: 18 }}>
               <div style={{ fontWeight: 700, marginBottom: 10 }}>
                 Owners ({owners.length})
               </div>

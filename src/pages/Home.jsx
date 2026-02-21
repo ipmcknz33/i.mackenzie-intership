@@ -5,22 +5,48 @@ import Landing from "../components/home/Landing";
 import LandingIntro from "../components/home/LandingIntro";
 import NewItems from "../components/home/NewItems";
 import TopSellers from "../components/home/TopSellers";
+import AOS from "aos";
 
 const Home = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      AOS.refreshHard();
+    }, 50);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <div id="wrapper">
       <div className="no-bottom no-top" id="content">
         <div id="top"></div>
-        <Landing />
-        <LandingIntro />
-        <HotCollections />
-        <NewItems />
-        <TopSellers />
-        <BrowseByCategory />
+
+        <div data-aos="fade-up">
+          <Landing />
+        </div>
+
+        <div data-aos="fade-up" data-aos-delay="100">
+          <LandingIntro />
+        </div>
+
+        <div data-aos="fade-up" data-aos-delay="200">
+          <HotCollections />
+        </div>
+
+        <div data-aos="fade-up" data-aos-delay="300">
+          <NewItems />
+        </div>
+
+        <div data-aos="fade-up" data-aos-delay="400">
+          <TopSellers />
+        </div>
+
+        <div data-aos="fade-up" data-aos-delay="500">
+          <BrowseByCategory />
+        </div>
       </div>
     </div>
   );
