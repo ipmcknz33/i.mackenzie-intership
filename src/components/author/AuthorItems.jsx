@@ -22,8 +22,17 @@ const pickArray = (root) => {
 };
 
 const getNftId = (item) =>
-  item?.id ?? item?._id ?? item?.nftId ?? item?.tokenId ?? null;
+  item?.nftId ??
+  item?.nft_id ??
+  item?.nftID ??
+  item?.tokenId ??
+  item?.token_id ??
+  item?.id ??
+  item?._id ??
+  null;
+
 const getTitle = (item) => item?.title ?? item?.name ?? "Untitled";
+
 const getImage = (item) =>
   item?.nftImage ??
   item?.image ??
@@ -182,7 +191,9 @@ const AuthorItems = ({ authorId, authorAvatar }) => {
   return (
     <div className="row">
       {items.map((item, idx) => {
-        const detailId = getNftId(item) ?? idx;
+        const nftId = getNftId(item);
+        const detailPath = nftId ? `/item-details/${nftId}` : "/explore";
+
         const title = getTitle(item);
         const image = getImage(item);
         const priceText = getPriceText(item);
@@ -192,7 +203,7 @@ const AuthorItems = ({ authorId, authorAvatar }) => {
         return (
           <div
             className="col-lg-3 col-md-6 col-sm-6 col-xs-12"
-            key={`${detailId}-${idx}`}
+            key={`${nftId ?? "nft"}-${idx}`}
           >
             <div className="nft__item">
               <div className="author_list_pp">
@@ -205,7 +216,7 @@ const AuthorItems = ({ authorId, authorAvatar }) => {
               ) : null}
 
               <div className="nft__item_wrap">
-                <Link to={`/item-details/${detailId}`}>
+                <Link to={detailPath}>
                   <img
                     src={image}
                     className="lazy nft__item_preview"
@@ -215,7 +226,7 @@ const AuthorItems = ({ authorId, authorAvatar }) => {
               </div>
 
               <div className="nft__item_info">
-                <Link to={`/item-details/${detailId}`}>
+                <Link to={detailPath}>
                   <h4>{title}</h4>
                 </Link>
 
