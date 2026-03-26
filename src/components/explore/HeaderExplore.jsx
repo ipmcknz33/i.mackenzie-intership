@@ -2,34 +2,31 @@ import React from "react";
 
 const HeaderExplore = () => {
   return (
-    <div className="col-lg-12">
+    <div className="col-lg-12 header-explore-wrap">
       <div className="items_filter">
         <form
           action="blank.php"
-          className="row form-dark"
+          className="form-dark quick-search-form"
           id="form_quick_search"
           method="post"
           name="form_quick_search"
           onSubmit={(e) => e.preventDefault()}
         >
-          <div className="col text-center">
-            <input
-              className="form-control"
-              id="name_1"
-              name="name_1"
-              placeholder="search item here..."
-              type="text"
-            />
-            <button
-              type="submit"
-              id="btn-submit"
-              className="btn-submit-reset"
-              aria-label="Search"
-            >
-              <i className="fa fa-search bg-color-secondary"></i>
-            </button>
-            <div className="clearfix"></div>
-          </div>
+          <input
+            className="form-control"
+            id="name_1"
+            name="name_1"
+            placeholder="search item here..."
+            type="text"
+          />
+          <button
+            type="submit"
+            id="btn-submit"
+            className="btn-submit-reset"
+            aria-label="Search"
+          >
+            <i className="fa fa-search bg-color-secondary"></i>
+          </button>
         </form>
 
         <div id="item_category" className="dropdown">
